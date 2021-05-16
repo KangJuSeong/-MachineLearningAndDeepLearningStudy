@@ -168,6 +168,7 @@ print(rf.feature_importances_)
 ```
 #### 2. 엑스트라 포레스트
 * 랜덤 포레스트와 비슷하게 결정 트리를 사용.
+* 기본적으로 100개의 결정트리를 훈련하며 전체 특성 중에 일부 특성을 랜덤하게 선택하여 노드를 분할하는데 사용.  
 * 부트스트랩 샘플링을 사용하지 않고 랜덤하게 노드를 분할해 과대적합을 감소시킴.
 ```python
 from sklearn.ensemble import ExtraTreesClassifier # 엑스트라 포레스트

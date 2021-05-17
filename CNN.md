@@ -84,4 +84,115 @@ plt.show()
 ## 합성곱 신경망의 시각화
 
 ### 가중치 시각화
-* 
+* 일반적으로 절편은 시각적으로 의미가 있지는 않음.
+* 모델이 어떤 가중치를 학습했는지 확인할 수는 있음.
+```python
+from tensorflow import keras
+
+
+model = keras.models.load_model('best-cnn-model.h5')
+conv = model.layers[0]
+# 첫번째는 가중치의 크기, 두번째는 절편의 개수
+print(conv.weights[0].shape, conv.weights[1].shape)
+
+# 가중치의 평균과 표준편차 계산
+conv_weights = conv.weights[0].numpy()
+print(conv_weights.mean(), conv_weights.std())
+
+# 32개의 커널을 컬러맵으로 표현
+fig, axs = plt.subplots(2, 16)
+for i in range(2):
+    for j in range(16):
+        axs[i, j].imshow(conv_weights[:, :, 0, i*16+j], vmin=-0.5, vmax=0.5)
+        axs[i, j].axis('off')
+plt.show()
+
+# 훈련이 되어있지 않은 모델
+no_training_model = keras.Sequential()
+no_training_model.add(keras.layers.Conv2D(32, kernel_size=3, activation='relu', padding='same', input_shape=(28, 28, 1)))
+
+# 첫번째 합성곱 층의 shape 와 가중치의 평균과 표준편차 출력
+no_training_conv = no_training_model.layers[0]
+print(no_training_conv.weights[0].shape)
+no_training_weights = no_training_conv.weights[0].numpy()
+print(no_training_weights.mean(), no_training_weights.std())
+
+# 32개의 커널을 컬러맵으로 출력
+fig, axs = plt.subplots(2, 16)
+for i in range(2):
+    for j in range(16):
+        axs[i, j].imshow(no_training_weights[:, :, 0, i*16+j], vmin=-0.5, vmax=0.5)
+        axs[i, j].axis('off')
+plt.show()
+```
+
+### 함수형 API
+* 입력이 2개거나 출력이 2개일 수도 있는 경우에는 Sequential 클래스를 사용하기 어려우므로 함수형 API 를 사용.
+* 함수형 API 를 통해 모델을 만들면 중간에 다양한 형태로 층을 연결할 수 있음.
+* 각각의 층에서 나온 출력값들을 저장하고 사용하기 때문에 특성 맵 시각화를 하는데 편리함.
+```python
+dense1 = keras.layers.Dense(100, activation='sigmoid')
+dense2 = keras.layers.Dense(10, activation='softmax')
+
+inputs = keras.Input(shape=(784,))
+hidden = dense1(inputs)
+outputs = dense2(hidden)
+model = keras.models.Model(inputs, outputs)
+
+# 모델의 입력을 간단하게 알 수 있음.
+print(model.input)
+
+# 이런 방식으로 model.input과 model.layers[0].output 을 연결하는 새로운 conv_acti 모델을 만들 수 있음
+conv_acti = keras.models.Model(model.input, model.layers[0].output)
+```
+
+### 특성맵 시각화
+* 함수형 API 를 통해서 원하는 위치의 합성곱 층에서 나온 출력을 통해 특성맵 그려서 시각화할 수 있음.
+```python
+from tensorflow import keras
+from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
+
+(train_input, train_target), (test_input, test_target) = keras.datasets.fashion_mnist.load_data()
+
+load_model = keras.models.load_model('best-cnn-model.h5')
+
+dense1 = keras.layers.Dense(100, activation='sigmoid')
+dense2 = keras.layers.Dense(10, activation='softmax')
+
+# 합성곱 층 한개에서 나온 출력을 수치화 하는 함수형 모델 
+inputs = keras.Input(shape=(784,))
+hidden = dense1(inputs)
+outputs = dense2(hidden)
+model = keras.models.Model(inputs, outputs)
+# 첫번째 합성곱 층 연결
+conv_act = keras.models.Model(load_model.input, load_model.layers[0].output)
+
+# 테스트용 이미지를 첫번째 합성곱 층의 입력으로 넣고 출력으로 나온 특성 맵 확인하기 
+input_data1 = train_input[0:1].reshape(-1, 28, 28, 1) / 255.0
+feature_maps = conv_act.predict(input_data1)
+print(feature_maps.shape)
+
+# 특성맵 맷플롯립으로 시각화 하기 
+fig, axs = plt.subplots(4, 8)
+for i in range(4):
+    for j in range(8):
+        axs[i, j].imshow(feature_maps[0, :, :, i*8+j])
+        axs[i, j].axis('off')
+plt.show()
+
+# 두번째 합성곱 층 연결
+conv_act2 = keras.models.Model(load_model.input, load_model.layers[2].output)
+
+input_data2 = train_input[0:1].reshape(-1, 28, 28, 1) / 255.0
+feature_maps2 = conv_act2.predict(input_data2)
+print(feature_maps2.shape)
+
+# 두번째 합성곱 층에서 나온 출력 특성 맵 시각화
+fig, axs = plt.subplots(8, 8)
+for i in range(8):
+    for j in range(8):
+        axs[i, j].imshow(feature_maps2[0, :, :, i*8+j])
+        axs[i, j].axis('off')
+plt.show()
+```

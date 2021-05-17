@@ -157,3 +157,78 @@ model.fit(train_scaled, train_target, epochs=10)
 ## 신경망 모델 훈련
 
 ### 손실 곡선
+* Keras 의 `fit()` 메서드는 History 클래스 객체를 반환.
+* History 객체에는 훈련 과정에서 계산한 지표,  즉 손실과 정확도 값이 저장되어 있음.
+```python
+from tensorflow import keras
+from sklearn.model_selection import train_test_split
+
+
+(train_input, train_target), (test_input, test_target) = keras.datasets.fashion_mnist.load_data()
+train_scaled = train_input / 255.0
+train_scaled, val_scaled, train_target, val_target = train_test_split(train_scaled, train_target, test_size=0.2, random_state=42)
+
+
+def model_fn(a_layer=None):
+    model = keras.Sequential()
+    model.add(keras.layers.Flatten(input_shape=(28, 28)))
+    model.add(keras.layers.Dense(100, activation='relu'))
+    if a_layer:
+        model.add(a_layer)
+    model.add(keras.layers.Dense(10, activation='softmax'))
+    return model
+
+
+model = model_fn()
+model.summary()
+
+model.compile(loss='sparse_categorical_crossentropy', metrics='accuracy')
+history = model.fit(train_scaled, train_target, epochs=5, verbose=0)
+
+import matplotlib.pyplot as plt
+
+# 훈련 세트에 대한 손실 그래프
+plt.plot(history.history['loss'])
+plt.xlabel('epoch')
+plt.ylabel('loss')
+plt.show()
+# 훈련 세트에 대한 정확성 그래프
+plt.plot(history.history['accuracy'])
+plt.xlabel('epoch')
+plt.ylabel('accuracy')
+plt.show()
+```
+
+### 검증 손실
+* 에포크에 따른 과대적합과 과소적합을 파악하려면 훈련 세트에 대한 점수뿐만 아니라 검증 세트에 대한 점수도 필요.
+* 인공 신경망 모델이 최적화하는 대상은 정확도가 아니라 손실 함수임.
+* 손실 감소에 비례하여 정확도가 높아지지 않는 경우가 존재하므로 모델이 잘 훈련되었는지 판단하기 위해서는 정확도 보다는 손실 함수의 값을 확인하는 것이 더 나음.
+```python
+# 검증 세트에 대한 손실 그래프
+plt.plot(history.history['val_loss'])
+plt.xlabel('epoch')
+plt.ylabel('val_loss')
+plt.show()
+# 검증 세트에 대한 정확도 그래프
+plt.plot(history.history['val_accuracy'])
+plt.xlabel('epoch')
+plt.ylabel('val_accuracy')
+plt.show()
+```
+
+### 드롭아웃
+`keras.layers.Dropout(0.3)`
+* 훈련 과정에서 층에 있는 일부 뉴런을 랜덤하게 출력을 0으로 만들어 과대적합을 막음.
+* 뉴런은 랜덤하게 드롭아웃 되고 얼마나 많은 뉴런을 드롭할지는 사용자가 정해야 하는 하이퍼파라미터.
+* 이전 층의 일부 뉴런이 랜덤하게 꺼지면 특정 뉴런에 과대하게 의존하는 것을 줄일 수 있고 모든 입력에 대해 주의를 기울여야 함.
+* 일부 뉴런의 출력이 없을 수 있다는 것을 감안하면 신경망은 더 안정적인 예측을 만들 수 있음.
+
+### 콜백
+1. 조기종료     
+   `es = EarlyStopping(monitor='val_loss', mode='min', patience=20)`
+    * 과대적합이 시작되기 전에 미리 중지시키는 조기 종료 존재.
+    * monitor 는 모니터링할 값을 설정하고 mode 는 최소가 될 때 patience 는 학습 후 모니터링 하는 값이 더 나아질 수 있는 기회를 몇번 까지 주는지를 선택
+2. 체크포인트    
+   `mc = ModelCheckpoint('save_path'', monitor='val_loss', mode='min', save_best_only=True)`
+    * 최상의 검증 점수를 만드는 모델을 저장하는 체크 포인트 존재.
+    * 첫번째 매개변수에 저장 경로를 입력하고 monitor 에 모니터링할 값, mode 에는 최소 또는 최대가 될 때 저장 방식은 결과가 제일 좋은 모델 하나만을 저장함.

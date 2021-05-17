@@ -71,18 +71,39 @@ history = model.fit(
   callbacks=[checkpoint_cb, early_stopping_cb]
 )
 
-plt.plot(acc)
-plt.plot(val_acc)
+plt.plot(history.history['acc'])
+plt.plot(history.history['val_acc'])
 plt.title('Model accuracy')
 plt.xlabel('Epoch')
 plt.ylabel('Accuracy')
 plt.legend(['Train', 'Test'], loc='upper left')
 plt.show()
 
-plt.plot(loss)
-plt.plot(val_loss)
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
 plt.title('Model loss')
 plt.xlabel('Epoch')
 plt.ylabel('Loss')
 plt.legend(['Train', 'Test'], loc='upper left')
 plt.show()
+
+image = Image.open('daisy.jpg')
+image = image.resize((224, 224))
+array = np.asarray(image) / 255.0
+data = np.ndarray(shape=(1, 224, 224, 3), dtype=np.float32)
+data[0] = array
+plt.imshow(data[0])
+plt.show()
+
+label = model.predict(data)
+result = np.argmax(label[0])
+if result == 0:
+    print('daisy')
+elif result == 1:
+    print('dandelion')
+elif result == 2:
+    print('roses')
+elif result == 3:
+    print('sunflowers')
+elif result == 4:
+    print('tulips')

@@ -75,9 +75,38 @@ val_seq = pad_sequences(val_input, maxlen=100, truncating='pre', padding='pre')
 ```
 
 ### 1. 순환 신경망 만들기
-* 
+```python
+from tensorflow import keras
+
+model = keras.Sequential()
+# input 이 (100, 500) 인 이유는 한 시퀀스의 최대 토큰 수는 100개이며 총 500개의 단어가 존재하고 해당 단어들을 원-핫 인코딩 한 배열의 크기는 500이다
+model.add(keras.layers.SimpleRNN(8, input_shape=(100, 500)))
+# 출력층, 이진 분류 이므로 뉴런은 1개, 활성화 함수는 sigmoid
+model.add(keras.layers.Dense(1, activation='sigmoid'))
+# 입력 데이터의 토큰 값을 원핫인코딩으로 바꾸기
+train_oh = keras.utils.to_categorical(train_seq)
+val_oh = keras.utils.to_categorical(val_seq)
+```
 
 ### 2. 순환 신경망 훈련하기
+```python
+import matplotlib.pyplot as plt
+
+rmsprop = keras.optimizers.RMSprop(learning_rate=1e-4)
+model.compile(optimizer=rmsprop, loss='binary_crossentropy', metrics=['acc'])
+cp = keras.callbacks.ModelCheckpoint('best-simplernn-model.h5', save_best_only=True)
+es = keras.callbacks.EarlyStopping(patience=3, restore_best_weights=True)
+history = model.fit(train_oh, train_target, epochs=100, batch_size=64,
+                    validation_data=(val_oh, val_target),
+                    callbacks=[cp, es])
+
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
+plt.xlabel('epoch')
+plt.ylabel('loss')
+plt.legend(['train', 'val'])
+plt.show()
+```
 
 ### 3. 단어 임베딩을 사용하기
 

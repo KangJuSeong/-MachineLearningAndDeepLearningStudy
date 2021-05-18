@@ -39,9 +39,43 @@
 >   1. 가중치에 절편을 더하기.
 >   2. 예시에는 뉴런마다 하나의 절편이 존재.
 >   3. 12 + 9 + 3 = 24 로 24개의 모델 파라미터 존재.
+> ### 순환층의 입력
+>   * 일반적으로 샘플마다 2개의 차원을 가지며, 하나의 샘플을 하나의 시퀀스라고 말함.
+>   * 시퀀스 안에는 여러 개의 아이템이 들어 있으며, 여기에서 시퀀스의 길이가 타임스텝 길이가 됨.
+>       > ex) I am a boy => 1개의 샘플안에 4개의 단어가 있고 각 단어는 3개로 표현될 수 있음. (1, 4, 3)
+>   * 이런 입력이 순환층을 통과하면 두 번째, 세 번째 차원이 사라지고 순환층의 뉴련 개수만큼 출력됨.
+> ### 순환층의 출력
+>   * 결론적으로 셀이 모든 타임스텝에서 출력을 만들지만 최종 출력은 마자믹 타임스텝의 은닉 상태만 출력으로 내보냄.
+>   * 마치 임력된 시퀀스 길이를 모두 읽어서 정보를 마지막 은닉 상태에 압축하여 전달하는 것처럼 볼 수 있음.
+>   * 정보를 기억하는 메모리를 가진다고 표현할 수 있음.
+>   * 다중 분류일 경우 출력층에 클래스 개수만큼 뉴런을 두고 활성화 함수를 소프트맥스 사용.
+>   * 이진 분류일 경우 출력층에 하나의 뉴런을 두고 활성화 함수를 시그모이드 사용.
+>   * 마지막 출력 시 셀의 출력이 1차원이므로 Flatten 클래스로 펼쳐줄 필요가 없고 출력 그대로 밀집층에 사용할 수 있음.
+
 ## 순환 신경망으로 IMDB 리뷰 분류하기
+* 텍스트 데이터의 경우 단어를 숫자로 바꿔줘야 하며 일반적인 방법으로는 데이터에 등장하는 단어마다 고유한 정수를 부여함.
+* 위와 같은 방식으로 분리된 단어들을 토큰이라고 부름.
+```python
+# 데이터 준비
+from tensorflow.keras.datasets import imdb
+from sklearn.model_selection import train_test_split
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+import numpy as np
+
+(train_input, train_target), (test_input, test_target) = imdb.load_data(num_words=500)
+train_input, val_input, train_target, val_target = train_test_split(train_input, train_target,
+                                                                    test_size=0.2,
+                                                                    random_state=42)
+
+# pad_sequences는 maxlen 보다 긴 시퀀스는 앞에서부터 토큰을 자름 -> 일반적으로 시퀀스의 뒷부분의 정보가 더 유용하리라 기대하기 때문
+# 뒤에서부터 자르고 싶다면 truncating='post' 로 변경
+# padding='post' 로 변경하면 패딩(0)을 뒤에서 부터 삽입
+train_seq = pad_sequences(train_input, maxlen=100, truncating='pre', padding='pre')
+val_seq = pad_sequences(val_input, maxlen=100, truncating='pre', padding='pre')
+```
 
 ### 1. 순환 신경망 만들기
+* 
 
 ### 2. 순환 신경망 훈련하기
 

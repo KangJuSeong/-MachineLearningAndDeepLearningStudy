@@ -80,6 +80,7 @@ from tensorflow import keras
 
 model = keras.Sequential()
 # input 이 (100, 500) 인 이유는 한 시퀀스의 최대 토큰 수는 100개이며 총 500개의 단어가 존재하고 해당 단어들을 원-핫 인코딩 한 배열의 크기는 500이다
+# SimpleRNN 에서 기본 활성화 함수는 tanh
 model.add(keras.layers.SimpleRNN(8, input_shape=(100, 500)))
 # 출력층, 이진 분류 이므로 뉴런은 1개, 활성화 함수는 sigmoid
 model.add(keras.layers.Dense(1, activation='sigmoid'))
@@ -109,17 +110,122 @@ plt.show()
 ```
 
 ### 3. 단어 임베딩을 사용하기
+* 순환 신경망에서 텍스트를 처리할 때 즐겨 사용하는 방법.
+* 각 단어를 고정된 크기의 실수 벡터로 바꾸어 주고 이런 단어 임베딩으로 만들어진 벡터는 원-핫 인코딩된 벡터보다 훨씬 의미 있는 값으로 채우져 있기 때문에 자연어 처리에서 더 좋은 성능을 내는 경우가 많음.
+* 케라스에서 `keras.layers.Embedding` 을 이용하여 임베딩 벡터를 만들어 주는 층 생성.
+```python
+model2 = keras.Sequential()
+# 첫번째 매개변수는 어휘 사전의 크기, 두번째 매개변수는 임베딩 벡터의 크기, 세번째 매개변수는 입력 시퀀스의 길이
+model2.add(keras.layers.Embedding(500, 16, input_length=100))
+model2.add(keras.layers.SimpleRNN(8))
+model2.add(keras.layers.Dense(1, activation='sigmoid'))
+
+rmsprop = keras.optimizers.RMSprop(learning_rate=1e-4)
+model.compile(optimizer=rmsprop, loss='binary_crossentropy', metrics=['acc'])
+cp = keras.callbacks.ModelCheckpoint('best-simplernn-model.h5', save_best_only=True)
+es = keras.callbacks.EarlyStopping(patience=3, restore_best_weights=True)
+history = model.fit(train_oh, train_target, epochs=100, batch_size=64,
+                    validation_data=(val_oh, val_target),
+                    callbacks=[cp, es])
+
+# 이전 모델과 비슷한 성능을 냈지만 순환층의 가중치 개수와 훈련 세트 크기가 훨씬 줄었음
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
+plt.xlabel('epoch')
+plt.ylabel('loss')
+plt.legend(['train', 'val'])
+plt.show()
+```
 
 ## LSTM과 GRU 셀
 
 ### 1. LSTM 구조
+* Long Shor-Term Memory 의 약자로 단기 기억을 오래 기억하기 위해 고안된 구조.
+* LSTM 에는 입력과 가중치를 곱하고 절편을 더해 활성화 함수를 통과시키는 구조를 여러개 가지고 있음.
+* 은닉 상태는 입력과 이전 타임스텝의 은닉 상태를 가중치에 곱한 후 활성화 함수를 통과시켜 다음 은닉 상태를 만듬.
+* 기본 순환층과는 달리 시그모이드 할성화 함수를 사용하며 tnnh 활성화 함수를 통과한 어떤 값가 곱해져서 은닉 상태를 만듬.
+* LSTM 에는 순환되는 상태과 은닉 상태와 셀 상태 두가지이며 셀 상태는 다음 층으로 전달되지 않고 LSTM 셀에서 순환만 되는 값.
+    > ### 셀 상테 계산
+    > 1. 셀 상태를 c, 은닉 상태를 h로 함.
+    > 2. 입력과 은닉 상태를 또 다른 가중치 Wf에 곱한 다음 시그모이드 함수를 통과.
+    > 3. 이전 타임스텝의 셀 상태와 곱하여 새로운 셀 상태를 만듬.
+    > 4. 만들어진 셀 상태가 tanh 함수를 통과하여 새로운 은닉 상태를 만드는데 기여.
+    > 5. 추가적으로 2개의 작은 셀이 더 추가되어 셀 상태를 만드는데 기여하는데 이전과 마찬가지로 입력과 은닉 상태를 각기 다른 가중치에 곱한 다음, 하나는 시그모이드 함수를 통과시키고 다른 하나는 tanh 함수를 통과시킴.
+    > 6. 두 결과를 곱한 후 이전 셀 상태와 더하면 최종적인 다음 셀 상태가 생김. 
 
 ### 2. LSTM 신경망 훈련
+```python
+from tensorflow.keras.datasets import imdb
+from sklearn.model_selection import train_test_split
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow import keras
+
+(train_input, train_target), (test_input, test_target) = imdb.load_data(num_words=500)
+train_input, val_input, train_target, val_target = train_test_split(train_input, train_target,
+                                                                    test_size=0.2,
+                                                                    random_state=42)
+
+train_seq = pad_sequences(train_input, maxlen=100)
+vla_seq = pad_sequences(val_input, maxlen=100)
+
+model = keras.Sequential()
+model.add(keras.layers.Embedding(500, 16, input_length=100))
+model.add(keras.layers.LSTM(8))
+model.add(keras.layers.Dense(1, activation='sigmoid'))
+
+rmsprop = keras.optimizers.RMSprop(learning_rate=1e-4)
+model.compile(optimizer=rmsprop, loss='binary_crossentropy', metrics=['acc'])
+cp = keras.callbacks.ModelCheckpoint('best-simplernn-model.h5', save_best_only=True)
+es = keras.callbacks.EarlyStopping(patience=3, restore_best_weights=True)
+history = model.fit(train_oh, train_target, epochs=100, batch_size=64,
+                    validation_data=(val_oh, val_target),
+                    callbacks=[cp, es])
+
+# 결과에서 기본 순환층보다 LSTM 이 과대적합을 억제하면서 훈련을 더 잘 수행한 것으로 보임
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
+plt.xlabel('epoch')
+plt.ylabel('loss')
+plt.legend(['train', 'val'])
+plt.show()
+```
 
 ### 3. 순환층에 드롭아웃 적용
+* 순환층은 자체적으로 드롭아웃 기능을 제공.
+* `SimpleRNN` 과 `LSTM` 클래스 모두 `dropout` 매개변수와 `recurrent_dropout` 매개변수를 가지고 있음.
+* `dropout` 매개변수는 셀의 입력에 드롭아웃을 적용하고 `recurrent_dropout`은 순환되는 은닉 상태에 드롭아웃을 적용.
+```python
+# 30%의 입력을 드롭아웃하여 이전 모델보다 훈련 손실과 검증 손실간의 차이가 더 좁혀진것을 확인
+model.add(keras.layers.LSTM(8, dropout=0.3))
+```
 
 ### 4. 2개의 층 연결
+* 순환층의 은닉 상태는 샘플의 마지막 타임스텝에 대한 은닉 상태만 다음 층으로 전달하며 순환층을 쌓게 되면 모든 순환층에 순차 데이터가 필요.
+* 앞쪽의 순환층이 모든 타임스텝에 대한 은닉 상태를 출력해 주어야 함.
+* 모든 타임스텝의 은닉 상태를 출력하기 위해서는 `return_sequences` 매개변수를 True로 지정하면 됨.
+```python
+# 2개의 LSTM 층을 이용하여 1개의 LSTM을 이용한 모델보다 과대적합을 더 잘 제어하면서 손실을 최대한 낮출수 있었음
+model = keras.Sequential()
+model.add(keras.layers.Embedding(500, 16, input_length=100))
+# 2개의 LSTM 층을 쌓았고 모든 드롭아웃을 0.3으로 지정, 첫번째 LSTM 층에서는 모든 타임스텝의 은닉 상태를 출력 output => (None, 100, 8)
+model.add(keras.layers.LSTM(8, dropout=0.3, return_sequences=True))
+# 두번쨰 층은 마지막 타임스텝의 은닉 상태만 출력 output => (None, 8)
+model.add(keras.layers.LSTM(8, dropout=0.3))
+model.add(keras.layers.Dense(1, activation='sigmoid'))
+```
 
 ### 5. GRU 구조
+* GRU 는 Gated Recurrent Unit의 약자로 LSTM 을 간소화한 버전으로 생각할 수 있음.
+* GRU 셀에는 은닉 상태와 입력에 가중치를 곱하고 절편을 더하는 작은 셀이 3개 들어있음.
+* Wz를 사용하는 셀의 출력이 은닉 상태에 바로 곱해져 삭제 게이트 역할, 이와 똑같은 출력을 1에서 뺀 다음 Wg를 사용하는 셀의 출력에 곱하여 입력되는 정보를 제어하는 역할, Wr을 사용하는 셀에서 출력된 값은 Wg 셀이 사용할 은닉 상태의 정보를 제어.  
+* 2개는 시그모이드 활성화 함수를 사용하고 하나는 tanh 활성화 함수를 사용.
+* GRU 셀은 LSTM 보다 가중치가 적기 때문에 계산량이 적지만 LSTM 못지않은 좋은 성능을 내는 것으로 알려짐.
 
 ### 6. GRU 신경망 훈련
+```python
+model = keras.Sequential()
+model.add(keras.layers.Embedding(500, 16, input_length=100))
+# GRU 셀 추가
+model.add(keras.layers.GRU(8))
+model.add(keras.layers.Dense(1, activation='sigmoid'))
+```
